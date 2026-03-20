@@ -1,5 +1,6 @@
--- DoctorHub V17.4: Full Edition [Morph Fixed + ShiftLock + Deleter]
--- ПРИМЕЧАНИЕ: Согласно твоей инструкции, старые функции сохранены, добавлены только уточнения.
+-- DoctorHub V17.4: Full Edition [Morph Fixed + ShiftLock + Deleter + Server Invis]
+-- ПРИМЕЧАНИЕ: Функции Morph и Deleter теперь помечены как локальные.
+-- Функция Real Invis прячет персонажа под карту и требует ресета для отключения.
 
 local player = game.Players.LocalPlayer
 local pGui = player:WaitForChild("PlayerGui")
@@ -17,7 +18,7 @@ local config = {
     espActive = false,
     namesActive = false,
     invisibilityActive = false,
-    realInvisActive = false, -- Новая переменная для настоящей невидимости
+    realInvisActive = false, -- Настоящая невидимость
     followingPlayer = nil,
     isSmoothing = false,
     selectedObject = nil, 
@@ -153,8 +154,7 @@ local speedBtn = createBtn("Speed: OFF", playerPage, nil, function() config.spee
 local jumpBtn = createBtn("Inf Jump: OFF", playerPage, nil, function() config.infJump = not config.infJump end)
 local shiftLockBtn = createBtn("Shift Lock: OFF", playerPage, nil, function() config.shiftLockActive = not config.shiftLockActive end)
 
--- Кнопка локальной невидимости (изменено название)
-local invisBtn = createBtn("Invisibility: OFF (Local)", playerPage, nil, function()
+local invisBtn = createBtn("Invis: OFF (Local Only)", playerPage, nil, function()
     config.invisibilityActive = not config.invisibilityActive
     local char = player.Character
     if char then
@@ -166,46 +166,44 @@ local invisBtn = createBtn("Invisibility: OFF (Local)", playerPage, nil, functio
     end
 end)
 
--- ДОБАВЛЕНО: Кнопка настоящей невидимости (для других)
 local realInvisBtn = createBtn("Real Invis: OFF (Server)", playerPage, Color3.fromRGB(100, 0, 150), function()
     config.realInvisActive = not config.realInvisActive
+    local char = player.Character
     if config.realInvisActive then
-        -- Логика Fling/God Invis (Сервер перестает видеть твоего персонажа правильно)
-        if player.Character and player.Character:FindFirstChild("LowerTorso") then
-            player.Character.LowerTorso:BreakJoints()
-            player.Character.LowerTorso.Transparency = 1
-            player.Character.LowerTorso.CanCollide = false
+        if char and char:FindFirstChild("LowerTorso") then
+            -- Прячем под карту и ломаем персонажа
+            char.LowerTorso.CFrame = char.LowerTorso.CFrame * CFrame.new(0, -500, 0)
+            char.LowerTorso:BreakJoints()
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then v.Transparency = 1 end
+            end
         end
     else
-        -- Для возврата нужно нажать Rejoin или сброситься
-        teleService:Teleport(game.PlaceId, player)
+        -- Сброс через смерть для выхода из инвиза
+        if char and char:FindFirstChild("Humanoid") then char.Humanoid.Health = 0 end
     end
 end)
 
 -- --- DELETER ---
 local selectedLabel = Instance.new("TextLabel")
--- ИЗМЕНЕНО: Добавлено пояснение
 selectedLabel.Size = UDim2.new(1, -5, 0, 50); selectedLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25); selectedLabel.Text = "Selected: None (Local Only)"; selectedLabel.TextColor3 = Color3.new(1, 1, 1); selectedLabel.Font = Enum.Font.GothamBold; selectedLabel.Parent = deleterPage; Instance.new("UICorner", selectedLabel)
 
 createBtn("SELECT OBJECT (CLICK)", deleterPage, Color3.fromRGB(0, 120, 200), function()
     config.selectingMode = true
 end)
 
--- ИЗМЕНЕНО: Добавлено (Только для тебя)
 createBtn("DELETE SELECTED (ONLY FOR YOU)", deleterPage, Color3.fromRGB(200, 0, 0), function()
     if config.selectedObject then config.selectedObject:Destroy(); config.selectedObject = nil; selectedLabel.Text = "Selected: Deleted (Local)" end
 end)
 
 -- --- MORPH LOGIC ---
 local morphLabel = Instance.new("TextLabel")
--- ИЗМЕНЕНО: Добавлено пояснение
 morphLabel.Size = UDim2.new(1, -5, 0, 50); morphLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25); morphLabel.Text = "To Morph: None (Local Only)"; morphLabel.TextColor3 = Color3.new(1, 1, 1); morphLabel.Font = Enum.Font.GothamBold; morphLabel.Parent = morphPage; Instance.new("UICorner", morphLabel)
 
 local selectMorphBtn = createBtn("SELECT PART", morphPage, Color3.fromRGB(0, 120, 200), function()
     config.selectingMorph = true
 end)
 
--- ИЗМЕНЕНО: Добавлено (Только для тебя)
 createBtn("MORPH (ONLY FOR YOU)", morphPage, Color3.fromRGB(0, 180, 100), function()
     if config.morphObject and player.Character then
         local char = player.Character
@@ -218,7 +216,7 @@ createBtn("MORPH (ONLY FOR YOU)", morphPage, Color3.fromRGB(0, 180, 100), functi
         clone.Name = "MorphPart"; clone.Anchored = false; clone.CanCollide = false; clone.Parent = char
         local weld = Instance.new("Weld")
         weld.Part0 = char.HumanoidRootPart; weld.Part1 = clone; weld.C0 = CFrame.new(0, 0, 0); weld.Parent = clone
-        morphLabel.Text = "Morphed! (Local)"
+        morphLabel.Text = "Morphed! (Local Only)"
     end
 end)
 
@@ -343,6 +341,7 @@ runService.RenderStepped:Connect(function()
             char.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
             if not config.selectingMode and not config.selectingMorph then uis.MouseBehavior = Enum.MouseBehavior.Default end
         end
+
         if config.speedActive and not config.isSmoothing then char.Humanoid.WalkSpeed = tonumber(sInput.Text) or 16 end
         gpsLabel.Text = string.format("X: %.0f | Y: %.0f | Z: %.0f", root.Position.X, root.Position.Y, root.Position.Z)
         updateESP()
@@ -351,7 +350,7 @@ runService.RenderStepped:Connect(function()
         jumpBtn.Text = "Inf Jump: " .. (config.infJump and "[ON]" or "[OFF]")
         shiftLockBtn.Text = "Shift Lock: " .. (config.shiftLockActive and "[ON]" or "[OFF]")
         invisBtn.Text = "Invis (Local): " .. (config.invisibilityActive and "[ON]" or "[OFF]")
-        realInvisBtn.Text = "Real Invis (Server): " .. (config.realInvisActive and "[ON]" or "[OFF]")
+        realInvisBtn.Text = "Real Invis: " .. (config.realInvisActive and "[ON - RESET TO OFF]" or "[OFF]")
     end
 end)
 
