@@ -1,0 +1,204 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- === НАСТРОЙКИ ===
+_G.AimActive = false
+_G.EspActive = false
+_G.FOV = 250 
+_G.MaxDistance = 1000 -- Новое: ограничение дистанции
+local CurrentTarget = nil
+
+-- === ИНТЕРФЕЙС ===
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "DoctorHub_Final"
+ScreenGui.ResetOnSpawn = false
+
+-- Визуальный круг FOV
+local FOVCircle = Instance.new("Frame", ScreenGui)
+FOVCircle.Size = UDim2.new(0, _G.FOV * 2, 0, _G.FOV * 2)
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.Visible = false
+local Stroke = Instance.new("UIStroke", FOVCircle)
+Stroke.Color = Color3.fromRGB(0, 170, 255)
+Instance.new("UICorner", FOVCircle).CornerRadius = UDim.new(1, 0)
+
+-- Кнопка открытия
+local OpenBtn = Instance.new("TextButton", ScreenGui)
+OpenBtn.Size = UDim2.new(0, 130, 0, 45)
+OpenBtn.Position = UDim2.new(0, 10, 0.5, -22)
+OpenBtn.Visible = false
+OpenBtn.Text = "Doctor Hub"
+OpenBtn.TextColor3 = Color3.fromRGB(0, 170, 255)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+OpenBtn.Font = Enum.Font.GothamBold
+OpenBtn.TextSize = 18
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", OpenBtn).Color = Color3.fromRGB(0, 170, 255)
+
+-- Главное окно
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 450, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MainFrame.Active = true
+MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+
+-- Заголовок DoctorHub (Добавлено из 2-го скрипта)
+local MenuHeader = Instance.new("TextLabel", MainFrame)
+MenuHeader.Text = "DoctorHub"
+MenuHeader.Size = UDim2.new(1, 0, 0, 60)
+MenuHeader.TextColor3 = Color3.fromRGB(0, 170, 255)
+MenuHeader.Font = Enum.Font.GothamBold
+MenuHeader.TextSize = 28
+MenuHeader.BackgroundTransparency = 1
+
+local Line = Instance.new("Frame", MainFrame)
+Line.Size = UDim2.new(0.9, 0, 0, 2)
+Line.Position = UDim2.new(0.05, 0, 0, 60)
+Line.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+Line.BackgroundTransparency = 0.5
+Line.BorderSizePixel = 0
+
+-- Кнопка закрытия
+local CloseBtn = Instance.new("TextButton", MainFrame)
+CloseBtn.Size = UDim2.new(0, 35, 0, 35)
+CloseBtn.Position = UDim2.new(1, -45, 0, 12)
+CloseBtn.Text = "×"
+CloseBtn.TextSize = 25
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
+
+CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false OpenBtn.Visible = true end)
+OpenBtn.MouseButton1Click:Connect(function() MainFrame.Visible = true OpenBtn.Visible = false end)
+
+-- Контейнер с прокруткой
+local Content = Instance.new("ScrollingFrame", MainFrame)
+Content.Size = UDim2.new(1, -40, 1, -90)
+Content.Position = UDim2.new(0, 20, 0, 80)
+Content.BackgroundTransparency = 1
+Content.ScrollBarThickness = 0
+Content.CanvasSize = UDim2.new(0, 0, 1.1, 0)
+local UIList = Instance.new("UIListLayout", Content)
+UIList.Padding = UDim.new(0, 12)
+
+-- Функции создания элементов
+local function AddToggle(text, var)
+    local Btn = Instance.new("TextButton", Content)
+    Btn.Size = UDim2.new(1, -5, 0, 45); Btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20); Btn.Text = ""
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 8)
+    local Lbl = Instance.new("TextLabel", Btn)
+    Lbl.Text = text; Lbl.Size = UDim2.new(0.5, 0, 1, 0); Lbl.Position = UDim2.new(0, 15, 0, 0); Lbl.BackgroundTransparency = 1; Lbl.TextColor3 = Color3.new(0.8,0.8,0.8); Lbl.TextXAlignment = Enum.TextXAlignment.Left; Lbl.Font = Enum.Font.Gotham
+    local Box = Instance.new("Frame", Btn)
+    Box.Size = UDim2.new(0, 38, 0, 20); Box.Position = UDim2.new(1, -50, 0.5, -10); Box.BackgroundColor3 = _G[var] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+    Instance.new("UICorner", Box).CornerRadius = UDim.new(1, 0)
+
+    Btn.MouseButton1Click:Connect(function()
+        _G[var] = not _G[var]
+        Box.BackgroundColor3 = _G[var] and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 45)
+        if var == "AimActive" then FOVCircle.Visible = _G[var] end
+    end)
+end
+
+local function AddSlider(text, min, max, default, varName, callback)
+    local SliderFrame = Instance.new("Frame", Content)
+    SliderFrame.Size = UDim2.new(1, -5, 0, 65); SliderFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Instance.new("UICorner", SliderFrame).CornerRadius = UDim.new(0, 8)
+    local Label = Instance.new("TextLabel", SliderFrame)
+    Label.Text = text .. ": " .. default; Label.Size = UDim2.new(1, 0, 0, 25); Label.Position = UDim2.new(0, 15, 0, 5); Label.TextColor3 = Color3.new(0.7,0.7,0.7); Label.BackgroundTransparency = 1; Label.TextXAlignment = Enum.TextXAlignment.Left; Label.Font = Enum.Font.Gotham
+    local Bar = Instance.new("Frame", SliderFrame); Bar.Size = UDim2.new(1, -30, 0, 6); Bar.Position = UDim2.new(0, 15, 0, 45); Bar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    local Fill = Instance.new("Frame", Bar); Fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0); Fill.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    Instance.new("UICorner", Bar); Instance.new("UICorner", Fill)
+
+    SliderFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local connection
+            connection = RunService.RenderStepped:Connect(function()
+                if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) and not UserInputService:IsMouseButtonPressed(Enum.UserInputType.Touch) then connection:Disconnect() return end
+                local pos = math.clamp((UserInputService:GetMouseLocation().X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+                local val = math.floor(min + (pos * (max - min)))
+                _G[varName] = val
+                Fill.Size = UDim2.new(pos, 0, 1, 0)
+                Label.Text = text .. ": " .. val
+                if callback then callback(val) end
+            end)
+        end
+    end)
+end
+
+-- Добавление элементов управления
+AddToggle("Аимбот (WallStick)", "AimActive")
+AddToggle("Подсветка (ESP)", "EspActive")
+AddSlider("Размер FOV", 50, 800, _G.FOV, "FOV", function(v) FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2) end)
+AddSlider("Дистанция аима", 100, 5000, _G.MaxDistance, "MaxDistance")
+
+-- === ЯДРО ===
+task.spawn(function()
+    while task.wait(0.05) do
+        if _G.AimActive then
+            local target = nil
+            local shortestDist = _G.FOV
+            local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+            for _, p in pairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") then
+                    if p.Character.Humanoid.Health > 0 then
+                        local head = p.Character.Head
+                        -- Проверка дистанции
+                        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        local distToPlayer = root and (head.Position - root.Position).Magnitude or 0
+                        
+                        if distToPlayer <= _G.MaxDistance then
+                            local screenPos, onScreen = Camera:WorldToScreenPoint(head.Position)
+                            if onScreen then
+                                local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                                if distToCenter < shortestDist then
+                                    shortestDist = distToCenter
+                                    target = head
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            CurrentTarget = target
+        else
+            CurrentTarget = nil
+        end
+    end
+end)
+
+-- Оптимизированный ESP
+task.spawn(function()
+    while task.wait(0.5) do
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local h = p.Character:FindFirstChild("ESPHighlight")
+                if _G.EspActive and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    if not h then
+                        h = Instance.new("Highlight", p.Character)
+                        h.Name = "ESPHighlight"; h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop; h.FillColor = Color3.fromRGB(255, 0, 0)
+                    end
+                else
+                    if h then h:Destroy() end
+                end
+            end
+        end
+    end
+end)
+
+-- Наводка (RenderStep)
+RunService:BindToRenderStep("DoctorHubCore", Enum.RenderPriority.Camera.Value + 1, function()
+    local IsHolding = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or UserInputService:IsMouseButtonPressed(Enum.UserInputType.Touch)
+    if _G.AimActive and IsHolding and CurrentTarget then
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, CurrentTarget.Position)
+    end
+end)
