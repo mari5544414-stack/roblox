@@ -1,0 +1,160 @@
+-- DoctorHub v19.4 (Teleport Restored)
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
+
+-- [ПЕРЕМЕННЫЕ]
+local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local targetSpeed = 16
+local targetJump = 50
+local antiRagdoll = false 
+local antiStan = false 
+local selectedPlayer = nil
+local isTrolling = false
+local flying = false 
+
+-- Настройки ESP
+local ESP_Settings = { Names = false, Distance = false }
+
+-- [ОКНО RAYFIELD]
+local Window = Rayfield:CreateWindow({
+   Name = "DoctorHub v19.4",
+   LoadingTitle = "DoctorHub Suite",
+   LoadingSubtitle = "сделано DoctorHub",
+   Theme = "Amethyst",
+   ConfigurationSaving = { Enabled = true, FolderName = "DoctorHub", FileName = "Config" }
+})
+
+-- [ВКЛАДКИ]
+local MainTab = Window:CreateTab("Главная", 4483362458)
+local VisualsTab = Window:CreateTab("Визуалы", 4483345998)
+local WorldTab = Window:CreateTab("Мир", 4483362458)
+local PlayersTab = Window:CreateTab("Игроки", 4483345998)
+
+-- [ЛОГИКА ESP]
+local function createESP(p)
+    local function onChar(char)
+        local head = char:WaitForChild("Head", 10)
+        if not head then return end
+        if head:FindFirstChild("DoctorESP") then head.DoctorESP:Destroy() end
+        local bgui = Instance.new("BillboardGui", head)
+        bgui.Name = "DoctorESP"
+        bgui.AlwaysOnTop, bgui.Size = true, UDim2.new(0, 200, 0, 50)
+        bgui.StudsOffset = Vector3.new(0, 2.5, 0)
+        local tl = Instance.new("TextLabel", bgui)
+        tl.BackgroundTransparency, tl.Size = 1, UDim2.new(1, 0, 1, 0)
+        tl.TextColor3, tl.TextSize = Color3.fromRGB(160, 32, 240), 14
+        tl.TextStrokeTransparency = 0
+        local connection
+        connection = RunService.RenderStepped:Connect(function()
+            if not p.Parent or not char.Parent or not head.Parent then connection:Disconnect() if bgui then bgui:Destroy() end return end
+            if (ESP_Settings.Names or ESP_Settings.Distance) and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local root = char:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local dist = math.floor((player.Character.HumanoidRootPart.Position - root.Position).Magnitude)
+                    local text = ESP_Settings.Names and p.DisplayName or ""
+                    if ESP_Settings.Distance then text = text .. (text ~= "" and " | " or "") .. dist .. "m" end
+                    tl.Text, tl.Visible = text, true
+                else tl.Visible = false end
+            else tl.Visible = false end
+        end)
+    end
+    if p.Character then onChar(p.Character) end
+    p.CharacterAdded:Connect(onChar)
+end
+for _, p in pairs(Players:GetPlayers()) do if p ~= player then createESP(p) end end
+Players.PlayerAdded:Connect(createESP)
+
+-- [ЛОГИКА ПОЛЕТА]
+local bodyVelocity, bodyGyro
+local function toggleFly(state)
+    flying = state
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if flying and root and hum then
+        bodyVelocity = Instance.new("BodyVelocity", root)
+        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro = Instance.new("BodyGyro", root)
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        hum.PlatformStand = true
+    else
+        if bodyVelocity then bodyVelocity:Destroy() end
+        if bodyGyro then bodyGyro:Destroy() end
+        if hum then hum.PlatformStand = false hum:ChangeState(11) end
+    end
+end
+
+-- [ВКЛАДКА ГЛАВНАЯ]
+MainTab:CreateSlider({ Name = "Скорость", Range = {0, 300}, Increment = 1, CurrentValue = 16, Callback = function(v) targetSpeed = v end })
+MainTab:CreateSlider({ Name = "Прыжок", Range = {0, 500}, Increment = 1, CurrentValue = 50, Callback = function(v) targetJump = v end })
+MainTab:CreateToggle({ Name = "Полет (Fly)", CurrentValue = false, Callback = function(v) toggleFly(v) end })
+MainTab:CreateToggle({ Name = "Anti-Ragdoll", CurrentValue = false, Callback = function(v) antiRagdoll = v end })
+MainTab:CreateToggle({ Name = "Anti-Stun", CurrentValue = false, Callback = function(v) antiStan = v end })
+
+-- [ВКЛАДКА ВИЗУАЛЫ]
+VisualsTab:CreateToggle({ Name = "Ники", CurrentValue = false, Callback = function(v) ESP_Settings.Names = v end })
+VisualsTab:CreateToggle({ Name = "Дистанция", CurrentValue = false, Callback = function(v) ESP_Settings.Distance = v end })
+
+-- [ВКЛАДКА МИР]
+WorldTab:CreateButton({ Name = "День", Callback = function() Lighting.ClockTime = 14 end })
+WorldTab:CreateButton({ Name = "Ночь", Callback = function() Lighting.ClockTime = 0 end })
+WorldTab:CreateToggle({ Name = "FullBright", CurrentValue = false, Callback = function(v)
+    Lighting.Ambient = v and Color3.new(1,1,1) or Color3.new(0.5, 0.5, 0.5)
+    Lighting.Brightness = v and 2 or 1
+end })
+
+-- [ВКЛАДКА ИГРОКИ]
+local playerDropdown = PlayersTab:CreateDropdown({ Name = "Выбрать Игрока", Options = {"None"}, CurrentOption = {"None"}, Callback = function(o) selectedPlayer = Players:FindFirstChild(o[1]) end })
+PlayersTab:CreateToggle({ Name = "Обычный Троллинг (ТП)", CurrentValue = false, Callback = function(v) isTrolling = v end })
+
+PlayersTab:CreateButton({ 
+    Name = "Телепорт к игроку", 
+    Callback = function() 
+        if selectedPlayer and selectedPlayer.Character and selectedPlayer.Character:FindFirstChild("HumanoidRootPart") then 
+            player.Character.HumanoidRootPart.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame 
+        end 
+    end 
+})
+
+PlayersTab:CreateButton({ 
+    Name = "Super Troll (Platform)", 
+    Callback = function() 
+        if selectedPlayer then
+            local targetPos = Vector3.new(526, 103, 517)
+            local root = player.Character.HumanoidRootPart
+            local tRoot = selectedPlayer.Character.HumanoidRootPart
+            root.CFrame, tRoot.CFrame = CFrame.new(targetPos + Vector3.new(0,3,0)), CFrame.new(targetPos + Vector3.new(0,3,0))
+            local p = Instance.new("Part", workspace)
+            p.Size, p.Position, p.Anchored = Vector3.new(20,1,20), targetPos, true
+            task.wait(5) p:Destroy()
+        end
+    end 
+})
+
+-- [ОСНОВНОЙ ЦИКЛ]
+RunService.Stepped:Connect(function()
+    pcall(function()
+        local char = player.Character
+        if char and char:FindFirstChild("Humanoid") then
+            local hum, root = char.Humanoid, char.HumanoidRootPart
+            if flying and bodyVelocity and bodyGyro then
+                bodyVelocity.Velocity = workspace.CurrentCamera.CFrame:VectorToWorldSpace(hum.MoveDirection * targetSpeed)
+                bodyGyro.CFrame = workspace.CurrentCamera.CFrame
+            else
+                hum.WalkSpeed = hum.MoveDirection.Magnitude > 0 and targetSpeed or 0
+                hum.JumpPower = targetJump
+                hum:SetStateEnabled(1, not antiRagdoll) hum:SetStateEnabled(0, not antiRagdoll)
+            end
+            if isTrolling and selectedPlayer and selectedPlayer.Character then
+                root.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,3.5)
+            end
+        end
+    end)
+end)
+
+task.spawn(function() while task.wait(5) do local list = {} for _,p in pairs(Players:GetPlayers()) do if p ~= player then table.insert(list, p.Name) end end playerDropdown:Refresh(list) end end)
+Rayfield:Notify({Title = "DoctorHub", Content = "Телепорт к игроку возвращен!", Duration = 5})
