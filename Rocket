@@ -1,0 +1,207 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Инициализация окна Doctor Hub
+local Window = Rayfield:CreateWindow({
+   Name = "Doctor Hub",
+   LoadingTitle = "Doctor Interface Suite",
+   LoadingSubtitle = "by DoctorHub",
+   Theme = "Amethyst",
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = "DoctorHubConfigs",
+      FileName = "MainConfig"
+   },
+   KeySystem = false
+})
+
+-- СЕРВИСЫ
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+
+-- СОСТОЯНИЕ
+local TRACK_CONFIG = {
+    Missiles = { Folder = "SpawnedMissiles", Color = Color3.fromRGB(255, 0, 0), Enabled = false, Active = {} },
+    Drones = { Folder = "SpawnedDrones", Color = Color3.fromRGB(0, 170, 255), Enabled = false, Active = {} }
+}
+
+_G.WalkSpeed = 16
+_G.JumpPower = 50
+_G.InfiniteJump = false
+_G.PlayerESP = false
+local PlayerVisuals = {} -- Таблица для хранения подсветки и текста игроков
+
+-- ВКЛАДКИ
+local MainTab = Window:CreateTab("Основное", 4483362458)
+local VisualsTab = Window:CreateTab("Визуалы", 4483345998)
+
+--- === ЛОГИКА ИГРОКА === ---
+
+UserInputService.JumpRequest:Connect(function()
+    if _G.InfiniteJump then
+        local character = player.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        local hum = player.Character.Humanoid
+        hum.WalkSpeed = _G.WalkSpeed
+        hum.JumpPower = _G.JumpPower
+        hum.UseJumpPower = true 
+    end
+end)
+
+--- === ФУНКЦИИ СОЗДАНИЯ ВИЗУАЛОВ === ---
+
+local function createESP(object, color, isPlayer)
+    local rootPart = object:FindFirstChild("HumanoidRootPart") or (object:IsA("BasePart") and object) or object:FindFirstChildWhichIsA("BasePart", true)
+    if not rootPart then return nil end
+
+    -- Подсветка корпуса
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = color
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = Color3.new(1, 1, 1)
+    highlight.Adornee = object
+    highlight.Parent = object
+
+    -- Текст над головой (Ник + Дистанция)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.AlwaysOnTop = true
+    billboard.ExtentsOffset = Vector3.new(0, 3, 0)
+    billboard.Adornee = rootPart
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0
+    label.TextScaled = true
+    label.Font = Enum.Font.Code
+    label.Text = isPlayer and object.Name or object.Name
+    label.Parent = billboard
+    billboard.Parent = player:WaitForChild("PlayerGui")
+
+    return {highlight = highlight, billboard = billboard, label = label, part = rootPart}
+end
+
+local function removeESP(data)
+    if data.highlight then data.highlight:Destroy() end
+    if data.billboard then data.billboard:Destroy() end
+end
+
+--- === ОБЩИЙ ЦИКЛ ОБНОВЛЕНИЯ === ---
+
+RunService.RenderStepped:Connect(function()
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    -- ESP ИГРОКОВ
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            local pChar = p.Character
+            if _G.PlayerESP and pChar and pChar:FindFirstChild("HumanoidRootPart") then
+                if not PlayerVisuals[p] then
+                    PlayerVisuals[p] = createESP(pChar, Color3.fromRGB(163, 73, 164), true)
+                else
+                    -- Обновление дистанции игрока
+                    if hrp and PlayerVisuals[p].part then
+                        local dist = (PlayerVisuals[p].part.Position - hrp.Position).Magnitude
+                        PlayerVisuals[p].label.Text = string.format("%s\n[%.1f m]", p.Name, dist)
+                    end
+                end
+            else
+                if PlayerVisuals[p] then
+                    removeESP(PlayerVisuals[p])
+                    PlayerVisuals[p] = nil
+                end
+            end
+        end
+    end
+
+    -- ESP ОБЪЕКТОВ (Ракеты/Дроны)
+    for _, data in pairs(TRACK_CONFIG) do
+        if data.Enabled then
+            local folder = Workspace:FindFirstChild(data.Folder)
+            if folder then
+                for _, child in pairs(folder:GetChildren()) do
+                    if not data.Active[child] then
+                        data.Active[child] = createESP(child, data.Color, false)
+                    end
+                end
+                for obj, visual in pairs(data.Active) do
+                    if obj and obj.Parent == folder and visual then
+                        if hrp and visual.part then
+                            local dist = (visual.part.Position - hrp.Position).Magnitude
+                            visual.label.Text = string.format("%s\n[%.1f m]", obj.Name, dist)
+                        end
+                    else
+                        if visual then removeESP(visual) end
+                        data.Active[obj] = nil
+                    end
+                end
+            end
+        else
+            for obj, visual in pairs(data.Active) do
+                removeESP(visual)
+                data.Active[obj] = nil
+            end
+        end
+    end
+end)
+
+--- === ИНТЕРФЕЙС === ---
+
+local WS_Slider = MainTab:CreateSlider({
+   Name = "Скорость ходьбы",
+   Range = {16, 500},
+   Increment = 1,
+   Suffix = "WS",
+   CurrentValue = 16,
+   Callback = function(Value) _G.WalkSpeed = Value end,
+})
+
+local JP_Slider = MainTab:CreateSlider({
+   Name = "Сила прыжка",
+   Range = {50, 500},
+   Increment = 1,
+   Suffix = "JP",
+   CurrentValue = 50,
+   Callback = function(Value) _G.JumpPower = Value end,
+})
+
+MainTab:CreateToggle({
+   Name = "Бесконечные прыжки",
+   CurrentValue = false,
+   Callback = function(Value) _G.InfiniteJump = Value end,
+})
+
+VisualsTab:CreateToggle({
+   Name = "ESP Игроки (Ник + Дист)",
+   CurrentValue = false,
+   Callback = function(Value) _G.PlayerESP = Value end,
+})
+
+VisualsTab:CreateToggle({
+   Name = "ESP Ракеты",
+   CurrentValue = false,
+   Callback = function(Value) TRACK_CONFIG.Missiles.Enabled = Value end,
+})
+
+VisualsTab:CreateToggle({
+   Name = "ESP Дроны",
+   CurrentValue = false,
+   Callback = function(Value) TRACK_CONFIG.Drones.Enabled = Value end,
+})
+
+Rayfield:LoadConfiguration()
