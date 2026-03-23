@@ -1,4 +1,4 @@
--- DoctorHub v19.4 (Super Troll Fix)
+-- DoctorHub v19.4 (Super Troll Fix + PC Bind)
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
@@ -9,6 +9,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService") -- Добавлено для бинда
 
 local targetSpeed = 16
 local targetJump = 50
@@ -21,21 +22,6 @@ local noclipEnabled = false
 
 -- Настройки ESP
 local ESP_Settings = { Names = false, Distance = false }
-
--- [ОКНО RAYFIELD]
-local Window = Rayfield:CreateWindow({
-   Name = "DoctorHub v19.4",
-   LoadingTitle = "DoctorHub Suite",
-   LoadingSubtitle = "сделано DoctorHub",
-   Theme = "Amethyst",
-   ConfigurationSaving = { Enabled = true, FolderName = "DoctorHub", FileName = "Config" }
-})
-
--- [ВКЛАДКИ]
-local MainTab = Window:CreateTab("Главная", 4483362458)
-local VisualsTab = Window:CreateTab("Визуалы", 4483345998)
-local WorldTab = Window:CreateTab("Мир", 4483362458)
-local PlayersTab = Window:CreateTab("Игроки", 4483345998)
 
 -- [ЛОГИКА ESP]
 local function createESP(p)
@@ -97,7 +83,6 @@ local function runAdvancedSuperTroll(targetPlayer)
     local myRoot = player.Character:FindFirstChild("HumanoidRootPart")
     if not myRoot then return end
 
-    -- Проверяем, существует ли уже GUI, чтобы не спамить кнопками
     local existingGui = playerGui:FindFirstChild("TrollAction")
     if existingGui then existingGui:Destroy() end
 
@@ -107,14 +92,13 @@ local function runAdvancedSuperTroll(targetPlayer)
     local actionBtn = Instance.new("TextButton")
     actionBtn.Size = UDim2.new(0, 160, 0, 60)
     actionBtn.Position = UDim2.new(0.5, -80, 0.2, 0)
-    actionBtn.Text = "PULL & STAY (5s)"
+    actionBtn.Text = "PULL & STAY (R)"
     actionBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
     actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     actionBtn.Font = Enum.Font.SourceSansBold
     actionBtn.TextSize = 18
     actionBtn.Parent = trollGui
 
-    -- Кнопка закрытия (X), чтобы можно было убрать оранжевую кнопку
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 20, 0, 20)
     closeBtn.Position = UDim2.new(1, -20, 0, 0)
@@ -124,18 +108,17 @@ local function runAdvancedSuperTroll(targetPlayer)
     closeBtn.Parent = actionBtn
     closeBtn.Activated:Connect(function() trollGui:Destroy() end)
 
-    -- ТП к игроку сразу
     myRoot.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
 
-    actionBtn.Activated:Connect(function()
-        -- Теперь мы НЕ удаляем trollGui здесь
+    local function executeAction()
+        if not actionBtn.Active then return end
         noclipEnabled = true
         local bv = Instance.new("BodyVelocity")
         bv.Velocity = Vector3.new(0, -250, 0)
         bv.MaxForce = Vector3.new(0, 999999, 0)
         bv.Parent = myRoot
         
-        actionBtn.Active = false -- Временно отключаем кнопку, пока идет процесс
+        actionBtn.Active = false
         actionBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
         actionBtn.Text = "WAIT..."
         
@@ -147,11 +130,39 @@ local function runAdvancedSuperTroll(targetPlayer)
         bv:Destroy()
         noclipEnabled = false
         
-        actionBtn.Active = true
-        actionBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
-        actionBtn.Text = "PULL & STAY (5s)"
+        if actionBtn and actionBtn.Parent then
+            actionBtn.Active = true
+            actionBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
+            actionBtn.Text = "PULL & STAY (R)"
+        end
+    end
+
+    actionBtn.Activated:Connect(executeAction)
+    
+    -- Обработка клавиши R для конкретного сеанса троллинга
+    local keyConnection
+    keyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not trollGui.Parent then keyConnection:Disconnect() return end
+        if not gameProcessed and input.KeyCode == Enum.KeyCode.R then
+            executeAction()
+        end
     end)
 end
+
+-- [ОКНО RAYFIELD]
+local Window = Rayfield:CreateWindow({
+   Name = "DoctorHub v19.4",
+   LoadingTitle = "DoctorHub Suite",
+   LoadingSubtitle = "сделано DoctorHub",
+   Theme = "Amethyst",
+   ConfigurationSaving = { Enabled = true, FolderName = "DoctorHub", FileName = "Config" }
+})
+
+-- [ВКЛАДКИ]
+local MainTab = Window:CreateTab("Главная", 4483362458)
+local VisualsTab = Window:CreateTab("Визуалы", 4483345998)
+local WorldTab = Window:CreateTab("Мир", 4483362458)
+local PlayersTab = Window:CreateTab("Игроки", 4483345998)
 
 -- [ВКЛАДКА ГЛАВНАЯ]
 MainTab:CreateSlider({ Name = "Скорость", Range = {0, 300}, Increment = 1, CurrentValue = 16, Callback = function(v) targetSpeed = v end })
@@ -224,4 +235,4 @@ RunService.Stepped:Connect(function()
 end)
 
 task.spawn(function() while task.wait(5) do local list = {} for _,p in pairs(Players:GetPlayers()) do if p ~= player then table.insert(list, p.Name) end end playerDropdown:Refresh(list) end end)
-Rayfield:Notify({Title = "DoctorHub", Content = "Кнопка Super Troll зафиксирована!", Duration = 5})
+Rayfield:Notify({Title = "DoctorHub", Content = "Super Troll забинден на клавишу R!", Duration = 5})
