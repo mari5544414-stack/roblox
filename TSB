@@ -148,13 +148,32 @@ local function runAdvancedSuperTroll(targetPlayer)
     end)
 end
 
--- [БИНД НА КЛАВИШУ E (ТЕЛЕПОРТ)]
+-- [ЛОГИКА ТЕЛЕПОРТА К БЛИЖАЙШЕМУ НА E]
+local function getClosestPlayer()
+    local closest = nil
+    local shortestDist = math.huge
+    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not myRoot then return nil end
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (myRoot.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if dist < shortestDist then
+                shortestDist = dist
+                closest = p
+            end
+        end
+    end
+    return closest
+end
+
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.E then
-        local char = player.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            root.CFrame = CFrame.new(-255, 441, 59)
+        local target = getClosestPlayer()
+        local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+        if target and myRoot then
+            myRoot.CFrame = target.Character.HumanoidRootPart.CFrame
         end
     end
 end)
@@ -245,4 +264,4 @@ RunService.Stepped:Connect(function()
 end)
 
 task.spawn(function() while task.wait(5) do local list = {} for _,p in pairs(Players:GetPlayers()) do if p ~= player then table.insert(list, p.Name) end end playerDropdown:Refresh(list) end end)
-Rayfield:Notify({Title = "DoctorHub", Content = "Добавлен ТП на E и Super Troll на R!", Duration = 5})
+Rayfield:Notify({Title = "DoctorHub", Content = "Нажми E для ТП к ближайшему игроку!", Duration = 5})
