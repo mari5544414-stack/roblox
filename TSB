@@ -1,13 +1,15 @@
--- DoctorHub v19.4 (Teleport Restored)
+-- DoctorHub v19.4 (Super Troll Fix)
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 
 -- [ПЕРЕМЕННЫЕ]
 local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
+
 local targetSpeed = 16
 local targetJump = 50
 local antiRagdoll = false 
@@ -15,6 +17,7 @@ local antiStan = false
 local selectedPlayer = nil
 local isTrolling = false
 local flying = false 
+local noclipEnabled = false
 
 -- Настройки ESP
 local ESP_Settings = { Names = false, Distance = false }
@@ -88,6 +91,68 @@ local function toggleFly(state)
     end
 end
 
+-- [ИСПРАВЛЕННАЯ ФУНКЦИЯ SUPER TROLL]
+local function runAdvancedSuperTroll(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    local myRoot = player.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    -- Проверяем, существует ли уже GUI, чтобы не спамить кнопками
+    local existingGui = playerGui:FindFirstChild("TrollAction")
+    if existingGui then existingGui:Destroy() end
+
+    local trollGui = Instance.new("ScreenGui", playerGui)
+    trollGui.Name = "TrollAction"
+    
+    local actionBtn = Instance.new("TextButton")
+    actionBtn.Size = UDim2.new(0, 160, 0, 60)
+    actionBtn.Position = UDim2.new(0.5, -80, 0.2, 0)
+    actionBtn.Text = "PULL & STAY (5s)"
+    actionBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
+    actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    actionBtn.Font = Enum.Font.SourceSansBold
+    actionBtn.TextSize = 18
+    actionBtn.Parent = trollGui
+
+    -- Кнопка закрытия (X), чтобы можно было убрать оранжевую кнопку
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 20, 0, 20)
+    closeBtn.Position = UDim2.new(1, -20, 0, 0)
+    closeBtn.Text = "X"
+    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.Parent = actionBtn
+    closeBtn.Activated:Connect(function() trollGui:Destroy() end)
+
+    -- ТП к игроку сразу
+    myRoot.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
+
+    actionBtn.Activated:Connect(function()
+        -- Теперь мы НЕ удаляем trollGui здесь
+        noclipEnabled = true
+        local bv = Instance.new("BodyVelocity")
+        bv.Velocity = Vector3.new(0, -250, 0)
+        bv.MaxForce = Vector3.new(0, 999999, 0)
+        bv.Parent = myRoot
+        
+        actionBtn.Active = false -- Временно отключаем кнопку, пока идет процесс
+        actionBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+        actionBtn.Text = "WAIT..."
+        
+        task.wait(0.6)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        myRoot.Anchored = true
+        task.wait(5)
+        myRoot.Anchored = false
+        bv:Destroy()
+        noclipEnabled = false
+        
+        actionBtn.Active = true
+        actionBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
+        actionBtn.Text = "PULL & STAY (5s)"
+    end)
+end
+
 -- [ВКЛАДКА ГЛАВНАЯ]
 MainTab:CreateSlider({ Name = "Скорость", Range = {0, 300}, Increment = 1, CurrentValue = 16, Callback = function(v) targetSpeed = v end })
 MainTab:CreateSlider({ Name = "Прыжок", Range = {0, 500}, Increment = 1, CurrentValue = 50, Callback = function(v) targetJump = v end })
@@ -121,16 +186,12 @@ PlayersTab:CreateButton({
 })
 
 PlayersTab:CreateButton({ 
-    Name = "Super Troll (Platform)", 
+    Name = "Super Troll (Pull/Stay)", 
     Callback = function() 
         if selectedPlayer then
-            local targetPos = Vector3.new(526, 103, 517)
-            local root = player.Character.HumanoidRootPart
-            local tRoot = selectedPlayer.Character.HumanoidRootPart
-            root.CFrame, tRoot.CFrame = CFrame.new(targetPos + Vector3.new(0,3,0)), CFrame.new(targetPos + Vector3.new(0,3,0))
-            local p = Instance.new("Part", workspace)
-            p.Size, p.Position, p.Anchored = Vector3.new(20,1,20), targetPos, true
-            task.wait(5) p:Destroy()
+            runAdvancedSuperTroll(selectedPlayer)
+        else
+            Rayfield:Notify({Title = "Ошибка", Content = "Сначала выбери игрока!", Duration = 3})
         end
     end 
 })
@@ -139,22 +200,28 @@ PlayersTab:CreateButton({
 RunService.Stepped:Connect(function()
     pcall(function()
         local char = player.Character
-        if char and char:FindFirstChild("Humanoid") then
-            local hum, root = char.Humanoid, char.HumanoidRootPart
-            if flying and bodyVelocity and bodyGyro then
-                bodyVelocity.Velocity = workspace.CurrentCamera.CFrame:VectorToWorldSpace(hum.MoveDirection * targetSpeed)
-                bodyGyro.CFrame = workspace.CurrentCamera.CFrame
-            else
-                hum.WalkSpeed = hum.MoveDirection.Magnitude > 0 and targetSpeed or 0
-                hum.JumpPower = targetJump
-                hum:SetStateEnabled(1, not antiRagdoll) hum:SetStateEnabled(0, not antiRagdoll)
+        if char then
+            if noclipEnabled then
+                for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
             end
-            if isTrolling and selectedPlayer and selectedPlayer.Character then
-                root.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,3.5)
+            
+            if char:FindFirstChild("Humanoid") then
+                local hum, root = char.Humanoid, char.HumanoidRootPart
+                if flying and bodyVelocity and bodyGyro then
+                    bodyVelocity.Velocity = workspace.CurrentCamera.CFrame:VectorToWorldSpace(hum.MoveDirection * targetSpeed)
+                    bodyGyro.CFrame = workspace.CurrentCamera.CFrame
+                else
+                    hum.WalkSpeed = hum.MoveDirection.Magnitude > 0 and targetSpeed or 0
+                    hum.JumpPower = targetJump
+                    hum:SetStateEnabled(1, not antiRagdoll) hum:SetStateEnabled(0, not antiRagdoll)
+                end
+                if isTrolling and selectedPlayer and selectedPlayer.Character then
+                    root.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,3.5)
+                end
             end
         end
     end)
 end)
 
 task.spawn(function() while task.wait(5) do local list = {} for _,p in pairs(Players:GetPlayers()) do if p ~= player then table.insert(list, p.Name) end end playerDropdown:Refresh(list) end end)
-Rayfield:Notify({Title = "DoctorHub", Content = "Телепорт к игроку возвращен!", Duration = 5})
+Rayfield:Notify({Title = "DoctorHub", Content = "Кнопка Super Troll зафиксирована!", Duration = 5})
