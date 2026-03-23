@@ -1,4 +1,4 @@
--- DoctorHub v19.4 (Super Troll Fix + PC Bind)
+-- DoctorHub v19.4 (Super Troll Fix + PC Binds)
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
@@ -9,7 +9,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
-local UserInputService = game:GetService("UserInputService") -- Добавлено для бинда
+local UserInputService = game:GetService("UserInputService")
 
 local targetSpeed = 16
 local targetJump = 50
@@ -139,7 +139,6 @@ local function runAdvancedSuperTroll(targetPlayer)
 
     actionBtn.Activated:Connect(executeAction)
     
-    -- Обработка клавиши R для конкретного сеанса троллинга
     local keyConnection
     keyConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not trollGui.Parent then keyConnection:Disconnect() return end
@@ -148,6 +147,17 @@ local function runAdvancedSuperTroll(targetPlayer)
         end
     end)
 end
+
+-- [БИНД НА КЛАВИШУ E (ТЕЛЕПОРТ)]
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.E then
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.CFrame = CFrame.new(-255, 441, 59)
+        end
+    end
+end)
 
 -- [ОКНО RAYFIELD]
 local Window = Rayfield:CreateWindow({
@@ -235,4 +245,4 @@ RunService.Stepped:Connect(function()
 end)
 
 task.spawn(function() while task.wait(5) do local list = {} for _,p in pairs(Players:GetPlayers()) do if p ~= player then table.insert(list, p.Name) end end playerDropdown:Refresh(list) end end)
-Rayfield:Notify({Title = "DoctorHub", Content = "Super Troll забинден на клавишу R!", Duration = 5})
+Rayfield:Notify({Title = "DoctorHub", Content = "Добавлен ТП на E и Super Troll на R!", Duration = 5})
