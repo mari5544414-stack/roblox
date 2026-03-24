@@ -1,4 +1,4 @@
--- DoctorHub v19.4 (Super Troll Fix + PC Binds)
+-- DoctorHub v19.4 (Super Troll Deep Loop + PC Binds)
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
@@ -77,11 +77,12 @@ local function toggleFly(state)
     end
 end
 
--- [ИСПРАВЛЕННАЯ ФУНКЦИЯ SUPER TROLL]
+-- [ОБНОВЛЕННЫЙ СУПЕР ТРОЛЛЬ]
 local function runAdvancedSuperTroll(targetPlayer)
     if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
     local myRoot = player.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
+    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not targetRoot then return end
 
     local existingGui = playerGui:FindFirstChild("TrollAction")
     if existingGui then existingGui:Destroy() end
@@ -90,10 +91,10 @@ local function runAdvancedSuperTroll(targetPlayer)
     trollGui.Name = "TrollAction"
     
     local actionBtn = Instance.new("TextButton")
-    actionBtn.Size = UDim2.new(0, 160, 0, 60)
-    actionBtn.Position = UDim2.new(0.5, -80, 0.2, 0)
-    actionBtn.Text = "PULL & STAY (R)"
-    actionBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
+    actionBtn.Size = UDim2.new(0, 180, 0, 60)
+    actionBtn.Position = UDim2.new(0.5, -90, 0.2, 0)
+    actionBtn.Text = "TP & ABYSS (R)"
+    actionBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 50)
     actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     actionBtn.Font = Enum.Font.SourceSansBold
     actionBtn.TextSize = 18
@@ -108,32 +109,52 @@ local function runAdvancedSuperTroll(targetPlayer)
     closeBtn.Parent = actionBtn
     closeBtn.Activated:Connect(function() trollGui:Destroy() end)
 
-    myRoot.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2)
-
     local function executeAction()
         if not actionBtn.Active then return end
+        
         noclipEnabled = true
+        actionBtn.Active = false
+        actionBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        
+        -- 1. ТП прямо к игроку
+        actionBtn.Text = "SNATCHING..."
+        myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 1)
+        task.wait(0.1)
+
+        -- 2. Уходим на 100 блоков вниз
+        actionBtn.Text = "GOING DEEP..."
+        local targetPos = targetRoot.Position
+        local deepY = targetPos.Y - 100 
+        
+        local attempts = 0
+        repeat
+            myRoot.CFrame = CFrame.new(targetPos.X, deepY, targetPos.Z)
+            task.wait(0.05)
+            attempts = attempts + 1
+        until (myRoot.Position.Y <= deepY + 5) or attempts > 20
+
+        -- 3. Удержание
+        actionBtn.Text = "PULLING..."
         local bv = Instance.new("BodyVelocity")
-        bv.Velocity = Vector3.new(0, -250, 0)
+        bv.Velocity = Vector3.new(0, -500, 0)
         bv.MaxForce = Vector3.new(0, 999999, 0)
         bv.Parent = myRoot
         
-        actionBtn.Active = false
-        actionBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-        actionBtn.Text = "WAIT..."
-        
-        task.wait(0.6)
+        task.wait(0.8)
         bv.Velocity = Vector3.new(0, 0, 0)
         myRoot.Anchored = true
+        
+        actionBtn.Text = "STAYING (5s)"
         task.wait(5)
+        
         myRoot.Anchored = false
         bv:Destroy()
         noclipEnabled = false
         
         if actionBtn and actionBtn.Parent then
             actionBtn.Active = true
-            actionBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
-            actionBtn.Text = "PULL & STAY (R)"
+            actionBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 50)
+            actionBtn.Text = "TP & ABYSS (R)"
         end
     end
 
@@ -264,4 +285,4 @@ RunService.Stepped:Connect(function()
 end)
 
 task.spawn(function() while task.wait(5) do local list = {} for _,p in pairs(Players:GetPlayers()) do if p ~= player then table.insert(list, p.Name) end end playerDropdown:Refresh(list) end end)
-Rayfield:Notify({Title = "DoctorHub", Content = "Нажми E для ТП к ближайшему игроку!", Duration = 5})
+Rayfield:Notify({Title = "DoctorHub", Content = "Super Troll: Deep TP Loop активен!", Duration = 5})
